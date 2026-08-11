@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "TXT to EPUB Converter"
+description = "A mobile-friendly dark web app that uploads TXT novels, detects reliable Chinese, Arabic, and English chapter headings, and previews the resulting chapter split before EPUB export."
+version = "1.0.0"
+id = "artifacts/txt-epub-converter"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19167
+
+[services.development]
+run = "pnpm --filter @workspace/txt-epub-converter run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/txt-epub-converter", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/txt-epub-converter/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19167"
+BASE_PATH = "/"
