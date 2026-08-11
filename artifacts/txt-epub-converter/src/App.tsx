@@ -4,7 +4,9 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  Download,
   FileText,
+  ImagePlus,
   Info,
   ListTree,
   RefreshCw,
@@ -19,6 +21,7 @@ type Chapter = {
   number: number;
   title: string;
   characters: number;
+  content: string;
 };
 
 type DetectionSettings = {
@@ -168,11 +171,13 @@ function findReliableHeadings(lines: string[], method: DetectionMethod): Heading
 function chaptersFromHeadings(lines: string[], headings: HeadingCandidate[]): Chapter[] {
   return headings.map((heading, index) => {
     const end = headings[index + 1]?.lineIndex ?? lines.length;
-    const content = lines.slice(heading.lineIndex, end).join('\n').trim();
+    const fullContent = lines.slice(heading.lineIndex, end).join('\n').trim();
+    const content = lines.slice(heading.lineIndex + 1, end).join('\n').trim();
     return {
       number: heading.number,
       title: heading.title,
-      characters: content.length,
+      characters: fullContent.length,
+      content,
     };
   });
 }
@@ -187,6 +192,7 @@ function chaptersFromRanges(lines: string[], ranges: Array<[number, number]>, ti
         number: index + 1,
         title: firstLine.length <= 72 ? firstLine : `${titlePrefix} ${index + 1}`,
         characters: content.length,
+        content,
       };
     })
     .filter((chapter): chapter is Chapter => chapter !== null);
@@ -269,13 +275,262 @@ function formatBytes(value: number): string {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function escapeHtml(value: string): string {
+  return escapeXml(value).replace(/\n/g, '<br />');
+}
+
+function safeFilename(value: string): string {
+  const normalized = value.trim().replace(/[^\p{L}\p{N}\s_-]+/gu, '').trim();
+  return (normalized || 'book').replace(/\s+/g, '_').slice(0, 120);
+}
+
+function getImageMimeType(file: File): string {
+  if (file.type === 'image/jpeg' || /\.jpe?g$/i.test(file.name)) return 'image/jpeg';
+  if (file.type === 'image/gif' || /\.gif$/i.test(file.name)) return 'image/gif';
+  if (file.type === 'image/webp' || /\.webp$/i.test(file.name)) return 'image/webp';
+  return 'image/png';
+}
+
+type ZipEntry = {
+  name: string;
+  data: Uint8Array;
+};
+
+function crc32(data: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function writeUint16(view: DataView, offset: number, value: number): void {
+  view.setUint16(offset, value, true);
+}
+
+function writeUint32(view: DataView, offset: number, value: number): void {
+  view.setUint32(offset, value >>> 0, true);
+}
+
+function createZip(entries: ZipEntry[]): Blob {
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let offset = 0;
+  const encoder = new TextEncoder();
+
+  for (const entry of entries) {
+    const name = encoder.encode(entry.name);
+    const checksum = crc32(entry.data);
+    const local = new Uint8Array(30 + name.length);
+    const localView = new DataView(local.buffer);
+    writeUint32(localView, 0, 0x04034b50);
+    writeUint16(localView, 4, 20);
+    writeUint16(localView, 6, 0x800);
+    writeUint16(localView, 8, 0);
+    writeUint16(localView, 10, 0);
+    writeUint16(localView, 12, 0);
+    writeUint32(localView, 14, checksum);
+    writeUint32(localView, 18, entry.data.length);
+    writeUint32(localView, 22, entry.data.length);
+    writeUint16(localView, 26, name.length);
+    local.set(name, 30);
+    localParts.push(local, entry.data);
+
+    const central = new Uint8Array(46 + name.length);
+    const centralView = new DataView(central.buffer);
+    writeUint32(centralView, 0, 0x02014b50);
+    writeUint16(centralView, 4, 20);
+    writeUint16(centralView, 6, 20);
+    writeUint16(centralView, 8, 0x800);
+    writeUint16(centralView, 10, 0);
+    writeUint16(centralView, 12, 0);
+    writeUint16(centralView, 14, 0);
+    writeUint32(centralView, 16, checksum);
+    writeUint32(centralView, 20, entry.data.length);
+    writeUint32(centralView, 24, entry.data.length);
+    writeUint16(centralView, 28, name.length);
+    writeUint32(centralView, 42, offset);
+    central.set(name, 46);
+    centralParts.push(central);
+    offset += local.length + entry.data.length;
+  }
+
+  const centralDirectorySize = centralParts.reduce((total, part) => total + part.length, 0);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  writeUint32(endView, 0, 0x06054b50);
+  writeUint16(endView, 8, entries.length);
+  writeUint16(endView, 10, entries.length);
+  writeUint32(endView, 12, centralDirectorySize);
+  writeUint32(endView, 16, offset);
+  writeUint16(endView, 20, 0);
+
+  const totalSize =
+    localParts.reduce((total, part) => total + part.length, 0) +
+    centralDirectorySize +
+    end.length;
+  const combined = new Uint8Array(totalSize);
+  let cursor = 0;
+  for (const part of [...localParts, ...centralParts, end]) {
+    combined.set(part, cursor);
+    cursor += part.length;
+  }
+  return new Blob([combined.buffer as ArrayBuffer], { type: 'application/epub+zip' });
+}
+
+async function createEpub(
+  title: string,
+  author: string,
+  language: string,
+  chapters: Chapter[],
+  coverFile?: File,
+): Promise<Blob> {
+  const bookTitle = title.trim() || 'Untitled Book';
+  const bookAuthor = author.trim() || 'Unknown author';
+  const safeLanguage = language.trim() || 'en';
+  const bookId = `urn:uuid:${crypto.randomUUID()}`;
+  const encoder = new TextEncoder();
+  const entries: ZipEntry[] = [
+    { name: 'mimetype', data: encoder.encode('application/epub+zip') },
+    {
+      name: 'META-INF/container.xml',
+      data: encoder.encode(
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+          '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">' +
+          '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>' +
+          '</container>',
+      ),
+    },
+  ];
+
+  const chapterFiles = chapters.map((chapter, index) => {
+    const href = `chapter-${index + 1}.xhtml`;
+    const body = chapter.content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `<p>${escapeHtml(line)}</p>`)
+      .join('');
+    return {
+      href,
+      id: `chapter-${index + 1}`,
+      content: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="${escapeXml(safeLanguage)}">
+<head><title>${escapeXml(chapter.title)}</title><meta charset="UTF-8"/></head>
+<body><h1>${escapeXml(chapter.title)}</h1>${body || '<p></p>'}</body>
+</html>`,
+    };
+  });
+
+  for (const chapter of chapterFiles) {
+    entries.push({ name: `OEBPS/${chapter.href}`, data: encoder.encode(chapter.content) });
+  }
+
+  let coverItem = '';
+  let coverManifest = '';
+  let coverSpine = '';
+  if (coverFile) {
+    const imageData = new Uint8Array(await coverFile.arrayBuffer());
+    const mimeType = getImageMimeType(coverFile);
+    const extension = mimeType === 'image/jpeg' ? 'jpg' : mimeType.split('/')[1];
+    entries.push({ name: `OEBPS/images/cover.${extension}`, data: imageData });
+    entries.push({
+      name: 'OEBPS/cover.xhtml',
+      data: encoder.encode(
+        `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="${escapeXml(safeLanguage)}">
+<head><title>${escapeXml(bookTitle)}</title></head>
+<body><img src="images/cover.${extension}" alt="${escapeXml(bookTitle)}"/></body>
+</html>`,
+      ),
+    });
+    coverItem = `<meta name="cover" content="cover-image"/>`;
+    coverManifest = `<item id="cover-image" href="images/cover.${extension}" media-type="${mimeType}" properties="cover-image"/><item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>`;
+    coverSpine = '<itemref idref="cover-page" linear="no"/>';
+  }
+
+  const manifest = [
+    '<item id="nav" properties="nav" href="nav.xhtml" media-type="application/xhtml+xml"/>',
+    '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
+    coverManifest,
+    ...chapterFiles.map(
+      (chapter) => `<item id="${chapter.id}" href="${chapter.href}" media-type="application/xhtml+xml"/>`,
+    ),
+  ].join('');
+  const spine = `${coverSpine}${chapterFiles.map((chapter) => `<itemref idref="${chapter.id}"/>`).join('')}`;
+  const tocLinks = chapterFiles
+    .map((chapter, index) => `<li><a href="${chapter.href}">${escapeHtml(chapters[index].title)}</a></li>`)
+    .join('');
+  const nav = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeXml(safeLanguage)}">
+<head><title>${escapeXml(bookTitle)}</title></head>
+<body><nav epub:type="toc" id="toc"><h1>Table of Contents</h1><ol>${tocLinks}</ol></nav></body>
+</html>`;
+  const ncxPoints = chapterFiles
+    .map(
+      (chapter, index) =>
+        `<navPoint id="navPoint-${index + 1}" playOrder="${index + 1}"><navLabel><text>${escapeXml(chapters[index].title)}</text></navLabel><content src="${chapter.href}"/></navPoint>`,
+    )
+    .join('');
+  const ncx = `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+<head><meta name="dtb:uid" content="${escapeXml(bookId)}"/></head>
+<docTitle><text>${escapeXml(bookTitle)}</text></docTitle>
+<navMap>${ncxPoints}</navMap>
+</ncx>`;
+  const opf = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:identifier id="book-id">${escapeXml(bookId)}</dc:identifier>
+<dc:title>${escapeXml(bookTitle)}</dc:title>
+<dc:creator>${escapeXml(bookAuthor)}</dc:creator>
+<dc:language>${escapeXml(safeLanguage)}</dc:language>
+<meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')}</meta>
+${coverItem}
+</metadata>
+<manifest>${manifest}</manifest>
+<spine toc="ncx">${spine}</spine>
+</package>`;
+
+  entries.push(
+    { name: 'OEBPS/nav.xhtml', data: encoder.encode(nav) },
+    { name: 'OEBPS/toc.ncx', data: encoder.encode(ncx) },
+    { name: 'OEBPS/content.opf', data: encoder.encode(opf) },
+  );
+  return createZip(entries);
+}
+
 function App() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const [fileError, setFileError] = useState('');
+  const [coverFile, setCoverFile] = useState<File | undefined>();
+  const [bookTitle, setBookTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [language, setLanguage] = useState('zh-CN');
+  const [isConverting, setIsConverting] = useState(false);
+  const [epubBlob, setEpubBlob] = useState<Blob | null>(null);
+  const [epubFilename, setEpubFilename] = useState('');
+  const [exportError, setExportError] = useState('');
   const [detectionVersion, setDetectionVersion] = useState(0);
   const [settings, setSettings] = useState<DetectionSettings>({
     method: 'auto',
@@ -300,6 +555,10 @@ function App() {
       const contents = typeof reader.result === 'string' ? reader.result : '';
       setFile(nextFile);
       setText(contents);
+      setBookTitle((current) => current || nextFile.name.replace(/\.txt$/i, ''));
+      setEpubBlob(null);
+      setEpubFilename('');
+      setExportError('');
       setIsReading(false);
     };
     reader.onerror = () => {
@@ -320,11 +579,49 @@ function App() {
     setFile(null);
     setText('');
     setFileError('');
+    setCoverFile(undefined);
+    setEpubBlob(null);
+    setEpubFilename('');
+    setExportError('');
+    setBookTitle('');
+    setAuthor('');
     if (inputRef.current) inputRef.current.value = '';
+    if (coverInputRef.current) coverInputRef.current.value = '';
   };
 
   const updateSetting = <K extends keyof DetectionSettings>(key: K, value: DetectionSettings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
+    setEpubBlob(null);
+    setEpubFilename('');
+  };
+
+  const convertToEpub = async () => {
+    if (!result.chapters.length) return;
+    setIsConverting(true);
+    setExportError('');
+    try {
+      const blob = await createEpub(bookTitle, author, language, result.chapters, coverFile);
+      setEpubBlob(blob);
+      setEpubFilename(`${safeFilename(bookTitle || file?.name.replace(/\.txt$/i, '') || 'book')}.epub`);
+    } catch {
+      setEpubBlob(null);
+      setEpubFilename('');
+      setExportError('EPUB creation failed. Please try again with a smaller cover image.');
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  const downloadEpub = () => {
+    if (!epubBlob || !epubFilename) return;
+    const url = URL.createObjectURL(epubBlob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = epubFilename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (
@@ -532,7 +829,11 @@ function App() {
                 <button
                   type="button"
                   className="btn-primary w-full"
-                  onClick={() => setDetectionVersion((current) => current + 1)}
+                  onClick={() => {
+                    setDetectionVersion((current) => current + 1);
+                    setEpubBlob(null);
+                    setEpubFilename('');
+                  }}
                   data-testid="button-redetect"
                 >
                   <RefreshCw size={16} />
@@ -540,7 +841,7 @@ function App() {
                 </button>
                 <div className="notice mt-4">
                   <Info size={15} />
-                  <span>Your text never leaves this browser. EPUB generation comes next.</span>
+                  <span>Your text and cover stay in this browser while the EPUB is assembled.</span>
                 </div>
               </aside>
 
@@ -607,6 +908,157 @@ function App() {
                 )}
               </section>
             </div>
+
+            <section className="panel export-panel fade-up delay-3 mt-5 p-5 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="eyebrow mb-1">Book details</div>
+                  <h2 className="text-xl font-semibold tracking-tight">Ready to make your EPUB?</h2>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                    These details become the book metadata. Your current {formatCount(result.chapters.length)}-chapter split will be used as-is.
+                  </p>
+                </div>
+                <BookOpen size={20} className="hidden text-primary sm:block" />
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="setting-label" htmlFor="book-title">Book title</label>
+                  <input
+                    id="book-title"
+                    className="setting-control"
+                    value={bookTitle}
+                    onChange={(event) => {
+                      setBookTitle(event.target.value);
+                      setEpubBlob(null);
+                    }}
+                    placeholder="My Novel"
+                    data-testid="input-book-title"
+                  />
+                </div>
+                <div>
+                  <label className="setting-label" htmlFor="book-author">Author</label>
+                  <input
+                    id="book-author"
+                    className="setting-control"
+                    value={author}
+                    onChange={(event) => {
+                      setAuthor(event.target.value);
+                      setEpubBlob(null);
+                    }}
+                    placeholder="Author name"
+                    data-testid="input-book-author"
+                  />
+                </div>
+                <div>
+                  <label className="setting-label" htmlFor="book-language">Language</label>
+                  <select
+                    id="book-language"
+                    className="setting-control"
+                    value={language}
+                    onChange={(event) => {
+                      setLanguage(event.target.value);
+                      setEpubBlob(null);
+                    }}
+                    data-testid="select-book-language"
+                  >
+                    <option value="zh-CN">Chinese (Simplified)</option>
+                    <option value="zh-TW">Chinese (Traditional)</option>
+                    <option value="en">English</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <label className="setting-label" htmlFor="cover-image">Cover image <span className="font-normal text-muted-foreground">(optional)</span></label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      ref={coverInputRef}
+                      id="cover-image"
+                      className="sr-only"
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif,image/webp"
+                      onChange={(event) => {
+                        const selected = event.target.files?.[0];
+                        if (selected) {
+                          setCoverFile(selected);
+                          setEpubBlob(null);
+                        }
+                      }}
+                      data-testid="input-cover-image"
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => coverInputRef.current?.click()}
+                      data-testid="button-choose-cover"
+                    >
+                      <ImagePlus size={16} />
+                      {coverFile ? 'Change cover' : 'Choose cover'}
+                    </button>
+                    {coverFile && (
+                      <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                        <span className="max-w-[220px] truncate">{coverFile.name}</span>
+                        <button
+                          type="button"
+                          className="btn-quiet min-h-8 px-1.5"
+                          onClick={() => {
+                            setCoverFile(undefined);
+                            setEpubBlob(null);
+                            if (coverInputRef.current) coverInputRef.current.value = '';
+                          }}
+                          aria-label="Remove cover image"
+                          data-testid="button-remove-cover"
+                        >
+                          <X size={15} />
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                  <span className="setting-hint">PNG, JPEG, GIF, or WebP. Added to the EPUB when provided.</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-primary sm:min-w-48"
+                  onClick={convertToEpub}
+                  disabled={isConverting || result.chapters.length === 0}
+                  data-testid="button-convert-epub"
+                >
+                  {isConverting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <BookOpen size={16} />}
+                  {isConverting ? 'Creating EPUB…' : 'Convert to EPUB'}
+                </button>
+              </div>
+
+              {exportError && (
+                <div className="notice mt-4" role="alert" data-testid="status-export-error">
+                  <AlertCircle size={15} />
+                  <span>{exportError}</span>
+                </div>
+              )}
+
+              {epubBlob && (
+                <div className="export-success mt-5" role="status" data-testid="status-epub-success">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                    <CheckCircle2 size={17} />
+                    EPUB created successfully
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary mt-3 w-full sm:w-auto"
+                    onClick={downloadEpub}
+                    data-testid="button-download-epub"
+                  >
+                    <Download size={16} />
+                    Download EPUB
+                  </button>
+                </div>
+              )}
+            </section>
           </section>
         )}
 

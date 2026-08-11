@@ -173,6 +173,19 @@
   background: hsl(var(--card) / .58);
 }
 
+.export-panel {
+  background:
+    linear-gradient(140deg, hsl(var(--accent) / .07), transparent 42%),
+    linear-gradient(145deg, hsl(var(--card) / .96), hsl(222 23% 11% / .9));
+}
+
+.export-success {
+  border: 1px solid hsl(var(--primary) / .35);
+  border-radius: var(--radius);
+  padding: .9rem;
+  background: hsl(var(--primary) / .07);
+}
+
 .dropzone {
   min-height: 244px;
   display: flex;
