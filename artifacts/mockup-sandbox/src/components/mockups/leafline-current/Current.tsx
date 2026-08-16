@@ -1,3 +1,5 @@
+import "./_group.css";
+
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
@@ -637,30 +639,21 @@ function App() {
               <div className="mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">TXT → EPUB</div>
             </div>
           </div>
-          <div className="topbar-right hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
-            <span className="secure-pulse h-1.5 w-1.5 rounded-full bg-primary" />
-            <span className="mono topbar-label">Private by default</span>
-            <span className="topbar-divider" aria-hidden="true" />
-            <span>Runs in your browser</span>
+          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Runs in your browser
           </div>
         </header>
 
-        <section className="hero-section fade-up pb-10 pt-14 sm:pb-14 sm:pt-20">
-          <div className="hero-copy-block">
-            <div className="eyebrow mb-4">A quieter way to prepare a book</div>
-            <h1 className="hero-title">
-              Turn a long text file into a <em>clear chapter map.</em>
-            </h1>
-            <p className="hero-copy mt-6">
-              Leafline reads your novel locally, recognizes Chinese and English chapter headings,
-              and gives you a calm split preview before any book is made.
-            </p>
-          </div>
-          <div className="hero-aside hidden lg:block" aria-hidden="true">
-            <div className="hero-aside-index mono">01 <span>/</span> 03</div>
-            <div className="hero-aside-line" />
-            <p>Source<br />to spine</p>
-          </div>
+        <section className="fade-up pb-10 pt-14 sm:pb-14 sm:pt-20">
+          <div className="eyebrow mb-4">A quieter way to prepare a book</div>
+          <h1 className="hero-title">
+            Turn a long text file into a <em>clear chapter map.</em>
+          </h1>
+          <p className="hero-copy mt-6">
+            Leafline reads your novel locally, recognizes Chinese and English chapter headings,
+            and gives you a calm split preview before any book is made.
+          </p>
         </section>
 
         {!file ? (
@@ -733,13 +726,6 @@ function App() {
           </section>
         ) : (
           <section className="fade-up delay-1 pb-16">
-            <div className="workflow-rail" aria-label="Conversion workflow">
-              <span className="workflow-step is-current"><b>01</b> Source</span>
-              <span className="workflow-connector" aria-hidden="true" />
-              <span className="workflow-step"><b>02</b> Chapter map</span>
-              <span className="workflow-connector" aria-hidden="true" />
-              <span className="workflow-step"><b>03</b> EPUB export</span>
-            </div>
             <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="file-pill min-w-0">
                 <span className="file-type">TXT</span>
