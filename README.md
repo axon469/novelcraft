@@ -1,12 +1,10 @@
-📚 NovelCraft
+<div align="center">📚 NovelCraft
 
-<p align="center">
-  A browser-based toolkit for cleaning, translating, formatting, and converting novels.
-</p><p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/Platform-Web-orange.svg" alt="Web">
-  <img src="https://img.shields.io/badge/Local--First-green.svg" alt="Local First">
-</p>---
+A browser-based toolkit for cleaning, translating, formatting, and converting novels.
+
+<img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
+<img src="https://img.shields.io/badge/Platform-Web-orange.svg" alt="Web">
+<img src="https://img.shields.io/badge/Local--First-green.svg" alt="Local First">---
 
 ✨ About
 
@@ -22,12 +20,8 @@ Turn messy downloaded text into clean, organized, and properly structured ebooks
 
 Clean and format raw novel text with options for:
 
-- Chapter splitting
-- Intelligent line breaks
-- Paragraph formatting
-- Chinese text conversion
-- Duplicate-line removal
-- Website and spam-text filtering
+Chapter splitting • Intelligent line breaks • Paragraph formatting
+Chinese text conversion • Duplicate-line removal • Website/spam filtering
 
 📕 TXT → EPUB
 
@@ -35,7 +29,7 @@ Convert TXT novels into properly structured EPUB ebooks with chapters and metada
 
 📗 EPUB → TXT
 
-Extract an EPUB into a readable TXT file while preserving chapter order and formatting.
+Extract EPUB files into readable TXT files while preserving chapter order and formatting.
 
 🌐 Translation
 
@@ -67,6 +61,6 @@ See ""LICENSE"" (LICENSE) for details.
 
 ---
 
-<p align="center">
-  📚 <b>NovelCraft — Turn messy text into beautiful books.</b>
-</p>
+📚 NovelCraft — Turn messy text into beautiful books.
+
+</div>
