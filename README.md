@@ -18,6 +18,20 @@
   <img alt="Local First" src="https://img.shields.io/badge/storage-local--first-green?style=flat">
 </div>
 
+<h2 align="center">🌐 Website Preview</h2>
+
+<p align="center">
+  <a href="https://pdf-studio-pro--axon43.replit.app">
+    <b>🚀 Open NovelCraft</b>
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://pdf-studio-pro--axon43.replit.app">
+    <img src="https://img.shields.io/badge/Live%20Preview-Open%20Website-2ea44f?style=for-the-badge" alt="Live Preview">
+  </a>
+</p>
+
 <h2 align="center">✨ Features</h2>
 
 <p align="center">
