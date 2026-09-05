@@ -1,66 +1,88 @@
-<div align="center">📚 NovelCraft
+<h1 align="center">📚 NovelCraft</h1>
 
-A browser-based toolkit for cleaning, translating, formatting, and converting novels.
+<p align="center">
+  A free and open source browser-based toolkit for cleaning, translating, formatting, and converting novels.
+</p>
 
-<img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License">
-<img src="https://img.shields.io/badge/Platform-Web-orange.svg" alt="Web">
-<img src="https://img.shields.io/badge/Local--First-green.svg" alt="Local First">---
-
-✨ About
-
-NovelCraft is a free browser-based toolkit designed mainly for processing Chinese web novels and text files.
-
-Turn messy downloaded text into clean, organized, and properly structured ebooks.
-
----
-
-🛠️ Features
-
-📄 Novel Text Formatter
-
-Clean and format raw novel text with options for:
-
-Chapter splitting • Intelligent line breaks • Paragraph formatting
-Chinese text conversion • Duplicate-line removal • Website/spam filtering
-
-📕 TXT → EPUB
-
-Convert TXT novels into properly structured EPUB ebooks with chapters and metadata.
-
-📗 EPUB → TXT
-
-Extract EPUB files into readable TXT files while preserving chapter order and formatting.
-
-🌐 Translation
-
-Translate large amounts of novel text using supported translation providers.
-
----
-
-🔒 Privacy
-
-NovelCraft follows a local-first approach.
-
-Whenever possible, files are processed directly in your browser instead of being uploaded to a server.
-
----
-
-🚀 Status
-
-🚧 Active Development
-
-New tools and improvements are being added in phases.
-
----
-
-📜 License
-
-Released under the MIT License.
-
-See ""LICENSE"" (LICENSE) for details.
-
----
-
-📚 NovelCraft — Turn messy text into beautiful books.
-
+<div align="center">
+  <a href="https://github.com/axon469/nc">
+    <img alt="GitHub" src="https://img.shields.io/badge/GitHub-NovelCraft-181717?logo=github&logoColor=white&style=flat">
+  </a>
+  <a href="https://github.com/axon469/nc/releases">
+    <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/axon469/nc/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat">
+  </a>
 </div>
+
+<div align="center">
+  <img alt="License" src="https://img.shields.io/github/license/axon469/nc?labelColor=27303D&color=1a73e8&style=flat">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-web-orange?style=flat">
+  <img alt="Local First" src="https://img.shields.io/badge/storage-local--first-green?style=flat">
+</div>
+
+<h2 align="center">✨ Features</h2>
+
+<p align="center">
+  📄 Novel Text Formatter
+  &nbsp; • &nbsp;
+  📕 TXT → EPUB
+  &nbsp; • &nbsp;
+  📗 EPUB → TXT
+  &nbsp; • &nbsp;
+  🌐 Translation
+</p>
+
+<h2 align="center">📄 Novel Text Formatter</h2>
+
+<p align="center">
+  Clean and organize messy novel text with intelligent formatting and advanced processing options.
+</p>
+
+<p align="center">
+  Chapter splitting • Intelligent line breaks • Paragraph formatting<br>
+  Chinese text conversion • Duplicate-line removal • Website and spam filtering
+</p>
+
+<h2 align="center">📕 TXT → EPUB</h2>
+
+<p align="center">
+  Convert plain TXT novels into properly structured EPUB ebooks with chapters and metadata.
+</p>
+
+<h2 align="center">📗 EPUB → TXT</h2>
+
+<p align="center">
+  Extract EPUB ebooks into readable TXT files while preserving chapter order and formatting.
+</p>
+
+<h2 align="center">🌐 Translation</h2>
+
+<p align="center">
+  Translate large amounts of novel text using supported translation providers.
+</p>
+
+<h2 align="center">🔒 Privacy</h2>
+
+<p align="center">
+  NovelCraft follows a local-first approach whenever possible.
+  Files can be processed directly in your browser without unnecessary uploads.
+</p>
+
+<h2 align="center">🛠️ Building</h2>
+
+<p align="center">
+  Clone the repository and open the project in your preferred development environment.
+</p>
+
+<h2 align="center">🤝 Contributing</h2>
+
+<p align="center">
+  Contributions, suggestions, bug reports, and improvements are welcome.
+</p>
+
+<h2 align="center">📜 License</h2>
+
+<p align="center">
+  <a href="https://github.com/axon469/nc/blob/main/LICENSE">
+    MIT
+  </a>
+</p>
